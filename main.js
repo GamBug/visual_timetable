@@ -2,13 +2,280 @@ const subjects = [];
 const colorClasses = ['color-1', 'color-2', 'color-3', 'color-4', 'color-5', 'color-6'];
 let colorCounter = 0;
 const courseColorMap = {}; // Map courseCode to color for consistent coloring
+let selectedWeek = 'all'; // Current selected week filter
+
+// localStorage key for saving schedule data
+const STORAGE_KEY = 'tkb-schedule-data';
+
+// Save schedule data to localStorage
+function saveToLocalStorage() {
+    const data = {
+        subjects: subjects,
+        colorCounter: colorCounter,
+        courseColorMap: courseColorMap
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// Load schedule data from localStorage
+function loadFromLocalStorage() {
+    const savedData = localStorage.getItem(STORAGE_KEY);
+    if (savedData) {
+        try {
+            const data = JSON.parse(savedData);
+
+            // Restore subjects
+            if (data.subjects && Array.isArray(data.subjects)) {
+                subjects.length = 0; // Clear existing
+                subjects.push(...data.subjects);
+            }
+
+            // Restore color counter
+            if (typeof data.colorCounter === 'number') {
+                colorCounter = data.colorCounter;
+            }
+
+            // Restore course color map
+            if (data.courseColorMap) {
+                Object.keys(courseColorMap).forEach(key => delete courseColorMap[key]);
+                Object.assign(courseColorMap, data.courseColorMap);
+            }
+
+            return true;
+        } catch (e) {
+            console.error('Error loading saved data:', e);
+            return false;
+        }
+    }
+    return false;
+}
+
+// Parse week string like "25-32,34-42" into array [25,26,27,...,32,34,35,...,42]
+function parseWeeks(weekStr) {
+    if (!weekStr || weekStr.trim() === '') return [];
+
+    const weeks = [];
+    const parts = weekStr.split(',');
+
+    for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed.includes('-')) {
+            const [start, end] = trimmed.split('-').map(Number);
+            for (let i = start; i <= end; i++) {
+                if (!weeks.includes(i)) weeks.push(i);
+            }
+        } else {
+            const num = parseInt(trimmed);
+            if (!isNaN(num) && !weeks.includes(num)) weeks.push(num);
+        }
+    }
+
+    return weeks.sort((a, b) => a - b);
+}
+
+// Academic calendar - Week start dates (based on HUST calendar)
+// Format: weekNumber -> start date (first day of that week)
+const academicCalendar = {
+    1: new Date('2025-09-08'),   // 8/9/25
+    2: new Date('2025-09-15'),   // 15/9/25
+    3: new Date('2025-09-22'),   // 22/9/25
+    4: new Date('2025-09-29'),   // 29/9/25
+    5: new Date('2025-10-06'),   // 6/10/25
+    6: new Date('2025-10-13'),   // 13/10/25
+    7: new Date('2025-10-20'),   // 20/10/25
+    8: new Date('2025-10-27'),   // 27/10/25
+    9: new Date('2025-11-03'),   // 3/11/25
+    10: new Date('2025-11-10'),  // 10/11/25
+    11: new Date('2025-11-17'),  // 17/11/25
+    12: new Date('2025-11-24'),  // 24/11/25
+    13: new Date('2025-12-01'),  // 1/12/25
+    14: new Date('2025-12-08'),  // 8/12/25
+    15: new Date('2025-12-15'),  // 15/12/25
+    16: new Date('2025-12-22'),  // 22/12/25
+    17: new Date('2025-12-29'),  // 29/12/25
+    18: new Date('2026-01-05'),  // 5/1/26
+    19: new Date('2026-01-12'),  // 12/1/26
+    20: new Date('2026-01-19'),  // 19/1/26
+    21: new Date('2026-01-26'),  // 26/1/26
+    22: new Date('2026-02-02'),  // 2/2/26
+    23: new Date('2026-02-09'),  // 9/2/26
+    24: new Date('2026-02-16'),  // 16/2/26
+    25: new Date('2026-02-23'),  // 23/2/26
+    26: new Date('2026-03-02'),  // 2/3/26
+    27: new Date('2026-03-09'),  // 9/3/26
+    28: new Date('2026-03-16'),  // 16/3/26
+    29: new Date('2026-03-23'),  // 23/3/26
+    30: new Date('2026-03-30'),  // 30/3/26
+    31: new Date('2026-04-06'),  // 6/4/26
+    32: new Date('2026-04-13'),  // 13/4/26
+    33: new Date('2026-04-20'),  // 20/4/26
+    34: new Date('2026-04-27'),  // 27/4/26
+    35: new Date('2026-05-04'),  // 4/5/26
+    36: new Date('2026-05-11'),  // 11/5/26
+    37: new Date('2026-05-18'),  // 18/5/26
+    38: new Date('2026-05-25'),  // 25/5/26
+    39: new Date('2026-06-01'),  // 1/6/26
+    40: new Date('2026-06-08'),  // 8/6/26
+    41: new Date('2026-06-15'),  // 15/6/26
+    42: new Date('2026-06-22'),  // 22/6/26
+    43: new Date('2026-06-29'),  // 29/6/26
+    44: new Date('2026-07-06'),  // 6/7/26
+    45: new Date('2026-07-13'),  // 13/7/26
+    46: new Date('2026-07-20'),  // 20/7/26
+    47: new Date('2026-07-27'),  // 27/7/26
+    48: new Date('2026-08-03'),  // 3/8/26
+    49: new Date('2026-08-10'),  // 10/8/26
+    50: new Date('2026-08-17'),  // 17/8/26
+    51: new Date('2026-08-24'),  // 24/8/26
+    52: new Date('2026-08-31'),  // 31/8/26
+};
+
+// Get current academic week based on the academic calendar
+function getCurrentAcademicWeek() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Find which week we're in
+    for (let week = 52; week >= 1; week--) {
+        if (academicCalendar[week] && today >= academicCalendar[week]) {
+            return week;
+        }
+    }
+    return 1; // Default to week 1 if before calendar starts
+}
+
+// Get date range for a specific week
+function getWeekDateRange(weekNum) {
+    if (!academicCalendar[weekNum]) return '';
+
+    const startDate = academicCalendar[weekNum];
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+
+    const formatDate = (d) => `${d.getDate()}/${d.getMonth() + 1}`;
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+}
+
+// Get all weeks that have classes
+function getWeeksWithClasses() {
+    const weeksSet = new Set();
+    subjects.forEach(subject => {
+        if (subject.weeks && subject.weeks.length > 0) {
+            subject.weeks.forEach(w => weeksSet.add(w));
+        }
+    });
+    return weeksSet;
+}
+
+// Update week selector to mark weeks with classes
+function updateWeekSelectorMarking() {
+    const select = document.getElementById('weekSelect');
+    const weeksWithClasses = getWeeksWithClasses();
+
+    for (let i = 1; i < select.options.length; i++) {
+        const option = select.options[i];
+        const weekNum = parseInt(option.value);
+        const dateRange = getWeekDateRange(weekNum);
+
+        if (weeksWithClasses.has(weekNum)) {
+            option.textContent = `📚 Tuần ${weekNum} (${dateRange})`;
+            option.style.fontWeight = 'bold';
+        } else {
+            option.textContent = `Tuần ${weekNum} (${dateRange})`;
+            option.style.fontWeight = 'normal';
+        }
+    }
+}
+
+// Initialize week selector dropdown
+function initWeekSelector() {
+    const select = document.getElementById('weekSelect');
+
+    // Add options for weeks 1-52
+    for (let i = 1; i <= 52; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        const dateRange = getWeekDateRange(i);
+        option.textContent = `Tuần ${i} (${dateRange})`;
+        select.appendChild(option);
+    }
+
+    // Event listener for week selection
+    select.addEventListener('change', function () {
+        selectedWeek = this.value;
+        updateWeekInfo();
+        renderSchedule();
+    });
+
+    // Current week button
+    document.getElementById('currentWeekBtn').addEventListener('click', function () {
+        const currentWeek = getCurrentAcademicWeek();
+        selectedWeek = currentWeek.toString();
+        document.getElementById('weekSelect').value = currentWeek;
+        updateWeekInfo();
+        renderSchedule();
+    });
+
+    // Previous week button
+    document.getElementById('prevWeekBtn').addEventListener('click', function () {
+        navigateWeek(-1);
+    });
+
+    // Next week button
+    document.getElementById('nextWeekBtn').addEventListener('click', function () {
+        navigateWeek(1);
+    });
+
+    updateWeekInfo();
+}
+
+// Navigate to previous or next week
+function navigateWeek(direction) {
+    const select = document.getElementById('weekSelect');
+
+    if (selectedWeek === 'all') {
+        // If viewing all weeks, start from current week
+        const currentWeek = getCurrentAcademicWeek();
+        selectedWeek = currentWeek.toString();
+    }
+
+    let newWeek = parseInt(selectedWeek) + direction;
+
+    // Wrap around: week 0 -> 52, week 53 -> 1
+    if (newWeek < 1) newWeek = 52;
+    if (newWeek > 52) newWeek = 1;
+
+    selectedWeek = newWeek.toString();
+    select.value = newWeek;
+    updateWeekInfo();
+    renderSchedule();
+}
+
+// Update week info display
+function updateWeekInfo() {
+    const infoSpan = document.getElementById('weekInfo');
+    const currentWeek = getCurrentAcademicWeek();
+
+    if (selectedWeek === 'all') {
+        infoSpan.textContent = `(Tuần hiện tại: ${currentWeek})`;
+    } else {
+        const selected = parseInt(selectedWeek);
+        if (selected === currentWeek) {
+            infoSpan.textContent = '✓ Đang xem tuần hiện tại';
+        } else if (selected < currentWeek) {
+            infoSpan.textContent = `(${currentWeek - selected} tuần trước)`;
+        } else {
+            infoSpan.textContent = `(${selected - currentWeek} tuần sau)`;
+        }
+    }
+}
 
 // Theme management
 const THEME_KEY = 'tkb-theme';
 function initTheme() {
     const savedTheme = localStorage.getItem(THEME_KEY);
     const isDarkMode = savedTheme === 'dark';
-    
+
     if (isDarkMode) {
         document.body.classList.add('dark-mode');
         updateThemeToggle();
@@ -26,7 +293,7 @@ function updateThemeToggle() {
     const toggle = document.getElementById('themeToggle');
     if (toggle) {
         const isDarkMode = document.body.classList.contains('dark-mode');
-        toggle.textContent = isDarkMode ? '☀️' : '🌙';
+        toggle.textContent = isDarkMode ? '🌙' : '☀️';
         toggle.title = isDarkMode ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối';
     }
 }
@@ -54,12 +321,12 @@ function hasScheduleConflict(day, startSession, endSession, excludeId = null) {
         if (excludeId !== null && subject.id === excludeId) {
             return false;
         }
-        
+
         // Check if same day
         if (subject.day !== day) {
             return false;
         }
-        
+
         // Check if sessions overlap
         // Sessions overlap if: newStart <= existingEnd AND newEnd >= existingStart
         const overlap = startSession <= subject.endSession && endSession >= subject.startSession;
@@ -137,6 +404,7 @@ function addSubject(event) {
     };
 
     subjects.push(subject);
+    saveToLocalStorage();
     renderSchedule();
     document.getElementById('scheduleForm').reset();
 }
@@ -159,8 +427,16 @@ function renderSchedule() {
     // Clear old subjects without resetting table structure
     clearSubjects();
 
+    // Filter subjects by selected week
+    const filteredSubjects = selectedWeek === 'all'
+        ? subjects
+        : subjects.filter(subject => {
+            if (!subject.weeks || subject.weeks.length === 0) return true; // Show if no week data
+            return subject.weeks.includes(parseInt(selectedWeek));
+        });
+
     // Render subjects
-    subjects.forEach(subject => {
+    filteredSubjects.forEach(subject => {
         const cell = document.getElementById(`cell-${subject.day}-${subject.startSession}`);
         const rowspan = subject.endSession - subject.startSession + 1;
 
@@ -190,6 +466,9 @@ function renderSchedule() {
             }
         }
     });
+
+    // Update week selector to mark weeks with classes
+    updateWeekSelectorMarking();
 }
 
 function deleteSubject(id) {
@@ -197,17 +476,18 @@ function deleteSubject(id) {
     if (index > -1) {
         const deletedSubject = subjects[index];
         const courseCode = deletedSubject.code;
-        
+
         subjects.splice(index, 1);
         colorCounter--;
-        
+
         // Check if this course code is still used by any other subject
         const courseStillExists = subjects.some(s => s.code === courseCode);
         if (!courseStillExists) {
             // If not, remove it from the color map
             delete courseColorMap[courseCode];
         }
-        
+
+        saveToLocalStorage();
         renderSchedule();
     }
 }
@@ -220,6 +500,7 @@ function resetSchedule() {
         for (let key in courseColorMap) {
             delete courseColorMap[key];
         }
+        saveToLocalStorage();
         renderSchedule();
     }
 }
@@ -228,19 +509,19 @@ function normalizeTimeToSession(timeStr) {
     // Convert time format "HH:MM" to session number with tolerance ±5 minutes
     const [hours, mins] = timeStr.split(':').map(Number);
     const inputMins = hours * 60 + mins;
-    
+
     let closestSession = null;
     let minDifference = Infinity;
     let normalizedTime = null;
-    
+
     // Find the closest session start time
     for (const [session, range] of Object.entries(sessionTimes)) {
         const [start, end] = range.split(' - ');
         const [sHour, sMin] = start.split(':').map(Number);
-        
+
         const startMins = sHour * 60 + sMin;
         const difference = Math.abs(inputMins - startMins);
-        
+
         // If input matches session start time within tolerance
         if (difference <= 5) {
             if (difference < minDifference) {
@@ -250,11 +531,11 @@ function normalizeTimeToSession(timeStr) {
             }
         }
     }
-    
+
     if (closestSession !== null) {
         return { session: closestSession, normalizedTime: normalizedTime };
     }
-    
+
     return null; // Outside tolerance
 }
 
@@ -268,29 +549,29 @@ function getClosestSession(timeStr) {
     // For PE subjects that don't fit exactly in session boundaries
     const [hours, mins] = timeStr.split(':').map(Number);
     const inputMins = hours * 60 + mins;
-    
+
     // First try: find session that contains this time
     for (const [session, range] of Object.entries(sessionTimes)) {
         const [start, end] = range.split(' - ');
         const [sHour, sMin] = start.split(':').map(Number);
         const [eHour, eMin] = end.split(':').map(Number);
-        
+
         const startMins = sHour * 60 + sMin;
         const endMins = eHour * 60 + eMin;
-        
+
         if (inputMins >= startMins && inputMins <= endMins) {
             return parseInt(session);
         }
     }
-    
+
     // Second try: find first session that starts after or close to this time
     let closestSession = null;
     let minDifference = Infinity;
-    
+
     for (const [session, range] of Object.entries(sessionTimes)) {
         const [start, end] = range.split(' - ');
         const [sHour, sMin] = start.split(':').map(Number);
-        
+
         const startMins = sHour * 60 + sMin;
         // Only consider sessions that start at or before the input time
         if (startMins <= inputMins) {
@@ -301,7 +582,7 @@ function getClosestSession(timeStr) {
             }
         }
     }
-    
+
     return closestSession;
 }
 
@@ -310,7 +591,7 @@ function parseMultiSessionSubject(groupLines, groupIndex, errorMessages) {
     const dayMap = {
         'T2': '2', 'T3': '3', 'T4': '4', 'T5': '5', 'T6': '6', 'T7': '7'
     };
-    
+
     try {
         // Count how many day patterns (T\d (S/C/T)) are in this group
         const dayPatterns = [];
@@ -322,14 +603,14 @@ function parseMultiSessionSubject(groupLines, groupIndex, errorMessages) {
                 break; // Stop when no more day patterns found
             }
         }
-        
+
         if (dayPatterns.length === 0) {
             return null; // Not a multi-session format
         }
-        
+
         const sessionCount = dayPatterns.length;
         const parsedSubjects = []; // Collect all subjects for this group
-        
+
         // Expected structure for multi-session:
         // Line 0: STT
         // Lines 1 to sessionCount: Days (T\d (S/C/T))
@@ -337,34 +618,34 @@ function parseMultiSessionSubject(groupLines, groupIndex, errorMessages) {
         // Lines (2*sessionCount+1) to (3*sessionCount): Weeks
         // Lines (3*sessionCount+1) to (4*sessionCount): Rooms
         // Last line: Tab-separated class info
-        
+
         const expectedLines = 4 * sessionCount + 1;
         if (groupLines.length < expectedLines) {
             errorMessages.push(`Lớp ${groupIndex + 1}: Format multi-session thiếu dữ liệu (cần ${expectedLines} dòng, có ${groupLines.length})`);
             return null;
         }
-        
+
         const subjects = [];
-        
+
         // Get class info once (same for all sessions in multi-session)
         const lastLineParts = groupLines[groupLines.length - 1].split('\t');
         if (lastLineParts.length < 3) {
             errorMessages.push(`Lớp ${groupIndex}: Thiếu thông tin môn học`);
             return null;
         }
-        
+
         const courseCode = lastLineParts[1].trim();
         const isPE = isPESubject(courseCode);
-        
+
         for (let session = 0; session < sessionCount; session++) {
             const dayMatch = dayPatterns[session].match;
             const day = dayMap['T' + dayMatch[1]];
             const timeSlot = dayMatch[2].toUpperCase();
-            
+
             // Get session range
             const sessionLine = groupLines[sessionCount + 1 + session];
             let startSession, endSession;
-            
+
             let sessionMatch = sessionLine.match(/Tiết\s*(\d+)\s*-\s*(\d+)/i);
             if (sessionMatch) {
                 startSession = parseInt(sessionMatch[1]);
@@ -374,7 +655,7 @@ function parseMultiSessionSubject(groupLines, groupIndex, errorMessages) {
                 if (sessionMatch) {
                     const startTime = `${sessionMatch[1]}:${sessionMatch[2]}`;
                     const endTime = `${sessionMatch[3]}:${sessionMatch[4]}`;
-                    
+
                     if (isPE) {
                         // For PE subjects, use closest session
                         startSession = getClosestSession(startTime);
@@ -382,12 +663,12 @@ function parseMultiSessionSubject(groupLines, groupIndex, errorMessages) {
                     } else {
                         const startResult = normalizeTimeToSession(startTime);
                         const endResult = normalizeTimeToSession(endTime);
-                        
+
                         if (!startResult || !endResult) {
                             errorMessages.push(`Lớp ${groupIndex}, buổi ${session + 1}: Không thể convert thời gian (chêch lệch > 5 phút)`);
                             return null;
                         }
-                        
+
                         startSession = startResult.session;
                         endSession = endResult.session;
                     }
@@ -396,7 +677,7 @@ function parseMultiSessionSubject(groupLines, groupIndex, errorMessages) {
                     return null;
                 }
             }
-            
+
             // Adjust sessions based on time slot
             if (timeSlot === 'C' || timeSlot === 'T') {
                 if (startSession <= 6 && endSession <= 6) {
@@ -404,14 +685,18 @@ function parseMultiSessionSubject(groupLines, groupIndex, errorMessages) {
                     endSession += 6;
                 }
             }
-            
+
             // Get room
             const room = groupLines[3 * sessionCount + 1 + session].trim();
-            
+
+            // Get weeks from line (2*sessionCount+1) + session
+            const weekStr = groupLines[2 * sessionCount + 1 + session].trim();
+            const weeks = parseWeeks(weekStr);
+
             // Get remaining class info
             const subjectName = lastLineParts[2].trim();
             const classType = lastLineParts.length > 3 ? lastLineParts[3].trim() : '';
-            
+
             const subject = {
                 id: Date.now() * 1000 + groupIndex * 100 + session * 10 + Math.floor(Math.random() * 10),
                 name: subjectName,
@@ -422,14 +707,15 @@ function parseMultiSessionSubject(groupLines, groupIndex, errorMessages) {
                 room: room,
                 type: classType,
                 color: getColorForCourse(courseCode),
-                isPE: isPE
+                isPE: isPE,
+                weeks: weeks
             };
-            
+
             parsedSubjects.push(subject);
         }
-        
+
         return parsedSubjects;
-        
+
     } catch (error) {
         errorMessages.push(`Lớp ${groupIndex + 1}: ${error.message}`);
         return null;
@@ -438,7 +724,7 @@ function parseMultiSessionSubject(groupLines, groupIndex, errorMessages) {
 
 function importFromText() {
     const bulkText = document.getElementById('bulkImportText').value.trim();
-    
+
     if (!bulkText) {
         alert('Vui lòng nhập dữ liệu!');
         return;
@@ -446,7 +732,7 @@ function importFromText() {
 
     // Split by lines
     const lines = bulkText.split('\n').map(line => line.trim()).filter(line => line);
-    
+
     if (lines.length < 5) {
         alert('Định dạng không hợp lệ!');
         return;
@@ -496,7 +782,7 @@ function importFromText() {
 
                 // Check for multi-session format (line 2 also starts with T\d)
                 const secondDayMatch = groupLines[2] ? groupLines[2].match(/T(\d)\s*\(([SCT])\)/i) : null;
-                
+
                 if (secondDayMatch) {
                     // This is a multi-session subject
                     const multiSessionSubjects = parseMultiSessionSubject(groupLines, groupIndex + 1, errorMessages);
@@ -525,7 +811,7 @@ function importFromText() {
 
                 // Line 2: Sessions (can be "Tiết 1-3" or "HH:MM-HH:MM")
                 let startSession, endSession;
-                
+
                 // Try "Tiết X-Y" format first
                 let sessionMatch = groupLines[2].match(/Tiết\s*(\d+)\s*-\s*(\d+)/i);
                 if (sessionMatch) {
@@ -537,7 +823,7 @@ function importFromText() {
                     if (sessionMatch) {
                         const startTime = `${sessionMatch[1]}:${sessionMatch[2]}`;
                         const endTime = `${sessionMatch[3]}:${sessionMatch[4]}`;
-                        
+
                         if (isPE) {
                             // For PE subjects, use closest session without strict tolerance
                             startSession = getClosestSession(startTime);
@@ -547,15 +833,15 @@ function importFromText() {
                             // Use normalizeTimeToSession for tolerance (±5 minutes) for regular subjects
                             const startResult = normalizeTimeToSession(startTime);
                             const endResult = normalizeTimeToSession(endTime);
-                            
+
                             if (!startResult || !endResult) {
                                 errorMessages.push(`Lớp ${groupIndex + 1}: Không thể convert thời gian (chêch lệch > 5 phút)`);
                                 return;
                             }
-                            
+
                             startSession = startResult.session;
                             endSession = endResult.session;
-                            
+
                             // Log normalized times if different from input
                             if (startResult.normalizedTime !== startTime || endResult.normalizedTime !== endTime) {
                                 console.log(`Lớp ${groupIndex + 1}: Chuẩn hoá từ ${startTime}-${endTime} → ${startResult.normalizedTime}-${endResult.normalizedTime}`);
@@ -576,7 +862,10 @@ function importFromText() {
                     }
                 }
 
-                // Line 3: Weeks (skip)
+                // Line 3: Weeks
+                const weekStr = groupLines[3].trim();
+                const weeks = parseWeeks(weekStr);
+
                 // Line 4: Room
                 const room = groupLines[4].trim();
 
@@ -595,7 +884,8 @@ function importFromText() {
                     room: room,
                     type: classType,
                     color: getColorForCourse(courseCode),
-                    isPE: isPE
+                    isPE: isPE,
+                    weeks: weeks
                 };
 
                 parsedSubjects.push(subject);
@@ -609,35 +899,35 @@ function importFromText() {
         // Check for conflicts within parsed subjects and with existing subjects
         let conflictCount = 0;
         const conflictingSubjects = [];
-        
+
         for (let i = 0; i < parsedSubjects.length; i++) {
             const subject = parsedSubjects[i];
             let hasConflict = false;
-            
+
             // Check conflict with existing subjects
             if (hasScheduleConflict(subject.day, subject.startSession, subject.endSession)) {
                 hasConflict = true;
             }
-            
+
             // Check conflict with other parsed subjects
             if (!hasConflict) {
                 for (let j = 0; j < i; j++) {
                     const other = parsedSubjects[j];
-                    if (other.day === subject.day && 
-                        subject.startSession <= other.endSession && 
+                    if (other.day === subject.day &&
+                        subject.startSession <= other.endSession &&
                         subject.endSession >= other.startSession) {
                         hasConflict = true;
                         break;
                     }
                 }
             }
-            
+
             if (hasConflict) {
                 conflictCount++;
-                conflictingSubjects.push(`${subject.name} (${subject.code}) - ${['T'+subject.day]} Tiết ${subject.startSession}-${subject.endSession}`);
+                conflictingSubjects.push(`${subject.name} (${subject.code}) - ${['T' + subject.day]} Tiết ${subject.startSession}-${subject.endSession}`);
             }
         }
-        
+
         // If there are conflicts, warn user and don't add
         if (conflictCount > 0) {
             alert(`⚠️ Phát hiện ${conflictCount} môn học bị trùng lịch:\n\n${conflictingSubjects.join('\n')}\n\nVui lòng kiểm tra lại dữ liệu và thử lại.`);
@@ -646,12 +936,13 @@ function importFromText() {
 
         // Add all parsed subjects to main array
         subjects.push(...parsedSubjects);
+        saveToLocalStorage();
 
         // Render all subjects at once
         if (successCount > 0) {
             renderSchedule();
             document.getElementById('bulkImportText').value = '';
-            
+
             let message = `✅ Đã thêm ${successCount} lớp học`;
             if (errorMessages.length > 0) {
                 message += `\n\n⚠️ Lỗi/Cảnh báo:\n${errorMessages.join('\n')}`;
@@ -684,7 +975,7 @@ function closeTutorial() {
 }
 
 // Close modal when clicking outside of it
-window.onclick = function(event) {
+window.onclick = function (event) {
     const modal = document.getElementById('tutorialModal');
     if (event.target == modal) {
         closeTutorial();
@@ -694,5 +985,13 @@ window.onclick = function(event) {
 // Initialize
 initTheme();
 initializeTable();
+initWeekSelector();
+
+// Load saved data from localStorage
+if (loadFromLocalStorage()) {
+    renderSchedule();
+    console.log('📚 Đã khôi phục thời khóa biểu từ dữ liệu đã lưu');
+}
+
 document.getElementById('scheduleForm').addEventListener('submit', addSubject);
 document.getElementById('themeToggle').addEventListener('click', toggleTheme);

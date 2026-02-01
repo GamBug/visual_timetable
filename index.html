@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý Thời khóa biểu Bách Khoa</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -34,14 +36,15 @@
             <!-- Form Section -->
             <div class="form-section">
                 <h2>Thêm môn học</h2>
-                
+
                 <!-- Bulk Import Section -->
                 <div class="import-section">
                     <div class="import-header">
                         <h3>📋 Nhập hàng loạt</h3>
                         <button class="btn-tutorial" onclick="openTutorial()">🎥 Hướng dẫn sử dụng</button>
                     </div>
-                    <textarea id="bulkImportText" class="bulk-input" placeholder="Ví dụ (nhập nhiều lớp):&#10;1&#10;T2 (S)&#10;Tiết 1-3&#10;25-32,34-42&#10;D9-203&#10;169538&#9;CH2021&#9;Đổi mới sáng tạo&#9;LT+BT&#10;2&#10;T2 (C)&#10;Tiết 5-6&#10;25-32,34-42&#10;D9-305&#10;168478&#9;IT3040&#9;Kỹ thuật lập trình&#9;LT&#10;3&#10;T2 (C)&#10;12:30-15:00&#10;31,34,36,38&#10;B1-405&#10;761906&#9;IT3080&#9;Mạng máy tính&#9;TN"></textarea>
+                    <textarea id="bulkImportText" class="bulk-input"
+                        placeholder="Ví dụ (nhập nhiều lớp):&#10;1&#10;T2 (S)&#10;Tiết 1-3&#10;25-32,34-42&#10;D9-203&#10;169538&#9;CH2021&#9;Đổi mới sáng tạo&#9;LT+BT&#10;2&#10;T2 (C)&#10;Tiết 5-6&#10;25-32,34-42&#10;D9-305&#10;168478&#9;IT3040&#9;Kỹ thuật lập trình&#9;LT&#10;3&#10;T2 (C)&#10;12:30-15:00&#10;31,34,36,38&#10;B1-405&#10;761906&#9;IT3080&#9;Mạng máy tính&#9;TN"></textarea>
                     <div class="import-button-group">
                         <button type="button" class="btn-import" onclick="importFromText()">📥 Nhập dữ liệu</button>
                     </div>
@@ -125,7 +128,19 @@
 
             <!-- Schedule Table Section -->
             <div class="table-section">
-                <h2>Thời khóa biểu</h2>
+                <div class="table-header">
+                    <h2>Thời khóa biểu</h2>
+                    <div class="week-selector">
+                        <label for="weekSelect">📅 Tuần:</label>
+                        <button id="prevWeekBtn" class="btn-week-nav" title="Tuần trước">←</button>
+                        <select id="weekSelect">
+                            <option value="all">Tất cả tuần</option>
+                        </select>
+                        <button id="nextWeekBtn" class="btn-week-nav" title="Tuần sau">→</button>
+                        <button id="currentWeekBtn" class="btn-current-week">📍 Tuần hiện tại</button>
+                        <span id="weekInfo" class="week-info"></span>
+                    </div>
+                </div>
                 <div class="table-wrapper">
                     <table id="scheduleTable">
                         <thead>
@@ -148,4 +163,5 @@
 
     <script src="main.js"></script>
 </body>
+
 </html>
