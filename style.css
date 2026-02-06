@@ -398,6 +398,8 @@ button {
     font-size: 13px;
     color: #7f8c8d;
     font-style: italic;
+    min-width: 180px;
+    text-align: left;
 }
 
 
