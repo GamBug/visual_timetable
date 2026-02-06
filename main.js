@@ -314,7 +314,17 @@ const sessionTimes = {
     12: '16:45 - 17:30'
 };
 
-function hasScheduleConflict(day, startSession, endSession, excludeId = null) {
+// Check if two week arrays have any overlap
+function hasWeekOverlap(weeks1, weeks2) {
+    // If either has no weeks defined, assume they overlap (can conflict any week)
+    if (!weeks1 || weeks1.length === 0 || !weeks2 || weeks2.length === 0) {
+        return true;
+    }
+    // Check if any week appears in both arrays
+    return weeks1.some(w => weeks2.includes(w));
+}
+
+function hasScheduleConflict(day, startSession, endSession, excludeId = null, newWeeks = null) {
     // Check if there's a conflict with existing subjects
     return subjects.some(subject => {
         // Skip the current subject being edited
@@ -329,8 +339,15 @@ function hasScheduleConflict(day, startSession, endSession, excludeId = null) {
 
         // Check if sessions overlap
         // Sessions overlap if: newStart <= existingEnd AND newEnd >= existingStart
-        const overlap = startSession <= subject.endSession && endSession >= subject.startSession;
-        return overlap;
+        const sessionOverlap = startSession <= subject.endSession && endSession >= subject.startSession;
+        if (!sessionOverlap) {
+            return false;
+        }
+
+        // Check if weeks overlap (if both have week data)
+        // Classes with overlapping day/session but different weeks are NOT conflicts
+        const weekOverlap = hasWeekOverlap(newWeeks, subject.weeks);
+        return weekOverlap;
     });
 }
 
@@ -904,18 +921,19 @@ function importFromText() {
             const subject = parsedSubjects[i];
             let hasConflict = false;
 
-            // Check conflict with existing subjects
-            if (hasScheduleConflict(subject.day, subject.startSession, subject.endSession)) {
+            // Check conflict with existing subjects (now considers weeks)
+            if (hasScheduleConflict(subject.day, subject.startSession, subject.endSession, null, subject.weeks)) {
                 hasConflict = true;
             }
 
-            // Check conflict with other parsed subjects
+            // Check conflict with other parsed subjects (also considers weeks)
             if (!hasConflict) {
                 for (let j = 0; j < i; j++) {
                     const other = parsedSubjects[j];
                     if (other.day === subject.day &&
                         subject.startSession <= other.endSession &&
-                        subject.endSession >= other.startSession) {
+                        subject.endSession >= other.startSession &&
+                        hasWeekOverlap(subject.weeks, other.weeks)) {
                         hasConflict = true;
                         break;
                     }
