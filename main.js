@@ -486,6 +486,9 @@ function renderSchedule() {
 
     // Update week selector to mark weeks with classes
     updateWeekSelectorMarking();
+
+    // Update class list table
+    renderClassList();
 }
 
 function deleteSubject(id) {
@@ -975,6 +978,112 @@ function importFromText() {
     }
 }
 
+// Format weeks array into compact string like "25-32, 34-42"
+function formatWeeksCompact(weeks) {
+    if (!weeks || weeks.length === 0) return '—';
+
+    const sorted = [...weeks].sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0];
+    let end = sorted[0];
+
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] === end + 1) {
+            end = sorted[i];
+        } else {
+            ranges.push(start === end ? `${start}` : `${start}-${end}`);
+            start = sorted[i];
+            end = sorted[i];
+        }
+    }
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+
+    return ranges.join(', ');
+}
+
+// Render class list table
+function renderClassList() {
+    const tbody = document.getElementById('classListBody');
+    const emptyDiv = document.getElementById('emptyClassList');
+    const tableEl = document.getElementById('classListTable');
+    const countSpan = document.getElementById('classCount');
+    const searchInput = document.getElementById('classSearchInput');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    const dayNames = { '2': 'Thứ 2', '3': 'Thứ 3', '4': 'Thứ 4', '5': 'Thứ 5', '6': 'Thứ 6', '7': 'Thứ 7' };
+
+    // Filter by search
+    let filtered = subjects;
+    if (searchTerm) {
+        filtered = subjects.filter(s =>
+            s.name.toLowerCase().includes(searchTerm) ||
+            s.code.toLowerCase().includes(searchTerm) ||
+            s.room.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    // Sort by course code (group same subjects), then by day, then by startSession
+    filtered.sort((a, b) => {
+        const codeCmp = a.code.localeCompare(b.code);
+        if (codeCmp !== 0) return codeCmp;
+        const dayDiff = parseInt(a.day) - parseInt(b.day);
+        if (dayDiff !== 0) return dayDiff;
+        return a.startSession - b.startSession;
+    });
+
+    tbody.innerHTML = '';
+
+    if (filtered.length === 0) {
+        tableEl.style.display = 'none';
+        emptyDiv.style.display = 'block';
+        if (searchTerm) {
+            emptyDiv.querySelector('p').textContent = `Không tìm thấy môn học "${searchInput.value}"`;
+        } else {
+            emptyDiv.querySelector('p').textContent = 'Chưa có lớp học nào. Hãy thêm môn học ở trên!';
+        }
+    } else {
+        tableEl.style.display = '';
+        emptyDiv.style.display = 'none';
+    }
+
+    countSpan.textContent = subjects.length > 0 ? `${filtered.length}/${subjects.length} lớp` : '';
+
+    // Color map for indicators
+    const colorGradients = {
+        'color-1': '#667eea',
+        'color-2': '#f093fb',
+        'color-3': '#4facfe',
+        'color-4': '#43e97b',
+        'color-5': '#fa709a',
+        'color-6': '#30cfd0'
+    };
+
+    filtered.forEach((subject, index) => {
+        const row = document.createElement('tr');
+        const indicatorColor = colorGradients[subject.color] || '#667eea';
+        const sessionRange = subject.startSession === subject.endSession
+            ? `Tiết ${subject.startSession}`
+            : `Tiết ${subject.startSession}-${subject.endSession}`;
+        const weeksStr = formatWeeksCompact(subject.weeks);
+
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>
+                <span class="class-list-color-indicator" style="background: ${indicatorColor}"></span>
+                <span class="class-list-name">${subject.name}</span>
+            </td>
+            <td><span class="class-list-code">${subject.code}</span></td>
+            <td><span class="class-list-day">${dayNames[subject.day] || subject.day}</span></td>
+            <td><span class="class-list-session">${sessionRange}</span></td>
+            <td><span class="class-list-room">${subject.room}</span></td>
+            <td>${subject.type ? `<span class="class-list-type">${subject.type}</span>` : '—'}</td>
+            <td><span class="class-list-weeks">${weeksStr}</span></td>
+            <td><button class="class-list-delete" onclick="deleteSubject(${subject.id})" title="Xóa">🗑️</button></td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
 // Tutorial Modal Functions
 function openTutorial() {
     const modal = document.getElementById('tutorialModal');
@@ -1013,3 +1122,7 @@ if (loadFromLocalStorage()) {
 
 document.getElementById('scheduleForm').addEventListener('submit', addSubject);
 document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+document.getElementById('classSearchInput').addEventListener('input', renderClassList);
+
+// Initial render of class list
+renderClassList();

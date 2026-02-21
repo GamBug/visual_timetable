@@ -158,6 +158,40 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Class List Section -->
+            <div class="class-list-section">
+                <div class="class-list-header">
+                    <h2>📋 Danh sách lớp học</h2>
+                    <div class="class-list-controls">
+                        <input type="text" id="classSearchInput" class="class-search"
+                            placeholder="🔍 Tìm kiếm môn học...">
+                        <span id="classCount" class="class-count"></span>
+                    </div>
+                </div>
+                <div class="class-list-wrapper">
+                    <table id="classListTable" class="class-list-table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Tên môn học</th>
+                                <th>Mã HP</th>
+                                <th>Thứ</th>
+                                <th>Tiết</th>
+                                <th>Phòng</th>
+                                <th>Loại</th>
+                                <th>Tuần học</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="classListBody"></tbody>
+                    </table>
+                    <div id="emptyClassList" class="empty-class-list">
+                        <span>📭</span>
+                        <p>Chưa có lớp học nào. Hãy thêm môn học ở trên!</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
