@@ -924,6 +924,35 @@ body.dark-mode .close:hover {
 .class-list-name {
     font-weight: 600;
     color: #2c3e50;
+    display: inline-block;
+    padding-bottom: 4px;
+}
+
+.class-list-name-wrapper {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 150px;
+}
+
+.class-progress-container {
+    width: 100%;
+    height: 3px;
+    background: #e0e0e0;
+    border-radius: 10px;
+    margin-top: 2px;
+    overflow: hidden;
+}
+
+.class-progress-bar {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.5s ease;
+}
+
+body.dark-mode .class-progress-container {
+    background: #d0d0d0;
 }
 
 .class-list-code {

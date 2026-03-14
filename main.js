@@ -978,6 +978,30 @@ function importFromText() {
     }
 }
 
+// Calculate progress percentage for a subject based on its weeks
+function getSubjectProgress(weeks) {
+    if (!weeks || weeks.length === 0) return 0;
+
+    const today = new Date();
+    const sortedWeeks = [...weeks].sort((a, b) => a - b);
+    const firstWeekNum = sortedWeeks[0];
+    const lastWeekNum = sortedWeeks[sortedWeeks.length - 1];
+
+    const startDate = academicCalendar[firstWeekNum];
+    if (!startDate) return 0;
+
+    const endDate = new Date(academicCalendar[lastWeekNum]);
+    endDate.setDate(endDate.getDate() + 7); // End of the last week
+
+    if (today < startDate) return 0;
+    if (today > endDate) return 100;
+
+    const totalDuration = endDate - startDate;
+    const elapsed = today - startDate;
+
+    return Math.floor((elapsed / totalDuration) * 100);
+}
+
 // Format weeks array into compact string like "25-32, 34-42"
 function formatWeeksCompact(weeks) {
     if (!weeks || weeks.length === 0) return '—';
@@ -1065,12 +1089,20 @@ function renderClassList() {
             ? `Tiết ${subject.startSession}`
             : `Tiết ${subject.startSession}-${subject.endSession}`;
         const weeksStr = formatWeeksCompact(subject.weeks);
+        const progress = getSubjectProgress(subject.weeks);
 
         row.innerHTML = `
             <td>${index + 1}</td>
             <td>
-                <span class="class-list-color-indicator" style="background: ${indicatorColor}"></span>
-                <span class="class-list-name">${subject.name}</span>
+                <div class="class-list-name-wrapper">
+                    <span class="class-list-color-indicator" style="background: ${indicatorColor}"></span>
+                    <span class="class-list-name">${subject.name}</span>
+                    ${progress > 0 ? `
+                        <div class="class-progress-container">
+                            <div class="class-progress-bar" style="width: ${progress}%; background: ${indicatorColor}"></div>
+                        </div>
+                    ` : ''}
+                </div>
             </td>
             <td><span class="class-list-code">${subject.code}</span></td>
             <td><span class="class-list-day">${dayNames[subject.day] || subject.day}</span></td>
